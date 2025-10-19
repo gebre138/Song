@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-// --- MOCK DATA, TYPES, AND STATE MANAGEMENT (Simulating Redux) ---
+// --- TYPES AND STATE MANAGEMENT (Simulating Redux) ---
 
 /**
- * Mock Song Type Definition
+ * Song Type Definition
  */
 type Song = {
   _id: string;
@@ -16,50 +16,25 @@ type Song = {
 
 type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
-// Generate a large, diverse set of mock data to ensure scrolling
-const genres = ['Rock', 'Pop', 'Jazz', 'Electronic', 'Classical', 'Hip Hop', 'Indie'];
-const artists = ['Queen', 'The Beatles', 'Nirvana', 'Michael Jackson', 'Led Zeppelin', 'Daft Punk', 'Mozart', 'Taylor Swift'];
-const albums = ['A Night at the Opera', 'Abbey Road', 'Nevermind', 'Thriller', 'IV', 'Discovery', 'Requiem', '1989'];
-
-const generateMockSongs = (count: number): Song[] => {
-  const songs: Song[] = [];
-  for (let i = 1; i <= count; i++) {
-    const genre = genres[i % genres.length];
-    const artist = artists[Math.floor(i / 10) % artists.length];
-    const album = albums[Math.floor(i / 15) % albums.length];
-    
-    songs.push({
-      _id: String(Date.now() + i),
-      Title: `Mock Track ${i}`,
-      Artist: artist,
-      Album: album,
-      Genre: genre,
-    });
-  }
-  return songs;
-};
-
-const initialSongs: Song[] = [
-    // Keep a few classics at the top
-    { _id: '1', Title: 'Bohemian Rhapsody', Artist: 'Queen', Album: 'A Night at the Opera', Genre: 'Rock' },
-    { _id: '2', Title: 'Imagine', Artist: 'John Lennon', Album: 'Imagine', Genre: 'Pop' },
-    { _id: '3', Title: 'Smells Like Teen Spirit', Artist: 'Nirvana', Album: 'Nevermind', Genre: 'Grunge' },
-    ...generateMockSongs(100) // Generate 100 additional songs
-];
+// Initial songs array is now empty as requested.
+const initialSongs: Song[] = [];
 
 /**
  * Global State Context (Replaces Redux Store)
+ * Includes isLoading for operation status.
  */
 const SongContext = createContext<{
   songs: Song[];
   addSong: (song: Omit<Song, '_id'>) => void;
   updateSong: (song: Song) => void;
   deleteSong: (id: string) => void;
+  isLoading: boolean; // Added for type correctness
 }>({
   songs: [],
   addSong: () => {},
   updateSong: () => {},
   deleteSong: () => {},
+  isLoading: false, // Initial value
 });
 
 const SongProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -98,13 +73,13 @@ const SongProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const contextValue = useMemo(() => ({ songs, addSong, updateSong, deleteSong, isLoading }), [songs, addSong, updateSong, deleteSong, isLoading]);
 
   return (
-    <SongContext.Provider value={contextValue as any}>
+    <SongContext.Provider value={contextValue}>
       {children}
     </SongContext.Provider>
   );
 };
 
-// --- SongForm Component (Consolidated from SongForm.tsx) ---
+// --- SongForm Component ---
 
 interface SongFormProps {
   songToEdit?: Song;
@@ -126,6 +101,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
 
   useEffect(() => {
     if (songToEdit) {
+      // Populate form when editing an existing song
       setSong({
         Title: songToEdit.Title,
         Artist: songToEdit.Artist,
@@ -133,6 +109,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
         Genre: songToEdit.Genre,
       });
     } else {
+      // Clear form for new song entry
       setSong({ Title: "", Artist: "", Album: "", Genre: "" });
     }
   }, [songToEdit]);
@@ -174,8 +151,10 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
     if (!isValid || isLoading) return;
 
     if (songToEdit) {
+      // If editing, call update
       onUpdate({ ...songToEdit, ...song });
     } else {
+      // If adding, call save
       onSave(song);
     }
 
@@ -305,7 +284,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
 
 const SongManager: React.FC = () => {
   // Use Context instead of Redux hooks
-  const { songs, addSong, updateSong, deleteSong, isLoading } = useContext(SongContext) as any;
+  const { songs, addSong, updateSong, deleteSong, isLoading } = useContext(SongContext);
 
   // Form & Modal States
   const [showForm, setShowForm] = useState(false);
@@ -338,6 +317,7 @@ const SongManager: React.FC = () => {
   };
 
   const handleAddNew = () => {
+    // Clear any song being edited and toggle the form visibility
     setEditSong(null);
     setShowForm(!showForm);
   };
@@ -411,14 +391,16 @@ const SongManager: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-['Inter']">
       <div className="max-w-6xl mx-auto">
         
-        {/* Floating Jump Button for Large Lists (Restored) */}
-        <button
-            onClick={handleScrollToStats}
-            title="Jump to Statistics Report"
-            className="fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl hover:bg-indigo-700 transition duration-300 transform hover:scale-110"
-        >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8v8m-4-8v8m-4-8v8m9-5a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10z"></path></svg>
-        </button>
+        {/* Floating Jump Button for Large Lists */}
+        {songs.length > 5 && (
+            <button
+                onClick={handleScrollToStats}
+                title="Jump to Statistics Report"
+                className="fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl hover:bg-indigo-700 transition duration-300 transform hover:scale-110"
+            >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8v8m-4-8v8m-4-8v8m9-5a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10z"></path></svg>
+            </button>
+        )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-lg border-t-4 border-indigo-500">
@@ -453,7 +435,10 @@ const SongManager: React.FC = () => {
                 songToEdit={editSong || undefined}
                 onUpdate={handleUpdate}
                 onSave={handleSave}
-                onClose={() => setShowForm(false)}
+                onClose={() => {
+                    setShowForm(false);
+                    setEditSong(null); // Ensure edit state is cleared when closing
+                }}
                 isLoading={isLoading}
               />
             </motion.div>
@@ -500,11 +485,13 @@ const SongManager: React.FC = () => {
             </div>
         )}
 
-        {/* Song List (Restored Update/Delete Buttons) */}
+        {/* Song List */}
         <div className="space-y-4">
           {filteredSongs.length === 0 ? (
             <p className="text-center text-gray-500 py-8 text-xl font-medium border border-dashed p-6 rounded-xl">
-              No songs found matching the current filter criteria.
+              {songs.length === 0 
+                ? "Your catalog is empty! Use the 'Add New Song' button to get started." 
+                : "No songs found matching the current filter criteria."}
             </p>
           ) : (
             filteredSongs.map((song: Song) => (
@@ -535,7 +522,7 @@ const SongManager: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Action Buttons (Restored) */}
+                {/* Action Buttons */}
                 <div className="flex space-x-2 mt-4 lg:mt-0 w-full lg:w-auto justify-end">
                   <button
                     className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center text-sm disabled:bg-yellow-300"
@@ -565,122 +552,123 @@ const SongManager: React.FC = () => {
         </div>
 
         {/* --- STATISTICS REPORT SECTION (Targeted by Jump Button) --- */}
-        <div ref={statsRef} className="pt-8">
-            <h2 className="text-3xl font-extrabold text-gray-800 mt-12 mb-6">📊 Catalog Statistics Report</h2>
-        </div>
-        
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
-          {[
-            {
-              icon: "🎵",
-              number: totalSongs,
-              label: "Total Songs",
-              color: "purple",
-            },
-            {
-              icon: "🎤",
-              number: uniqueArtists,
-              label: "Unique Artists",
-              color: "pink",
-            },
-            {
-              icon: "💿",
-              number: uniqueAlbums,
-              label: "Unique Albums",
-              color: "orange",
-            },
-            {
-              icon: "🎧",
-              number: mostCommonGenre,
-              label: "Most Common Genre",
-              color: "teal",
-            },
-          ].map((stat, index) => (
-            <div
-              key={index}
-              className={`bg-white p-5 rounded-xl shadow-lg text-center border-b-4 border-${stat.color}-400 hover:scale-[1.02] transition duration-200 cursor-default`}
-            >
-              <div className={`mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-${stat.color}-100 text-2xl mb-2`}>
-                {stat.icon}
-              </div>
-              <p className="text-3xl font-extrabold text-gray-800 truncate">{stat.number}</p>
-              <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Toggle Button for Detailed Stats */}
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={() => setShowDetailStats(!showDetailStats)}
-            className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold py-3 px-6 rounded-full transition duration-300 shadow-md flex items-center text-lg"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 mr-2 transition-transform ${showDetailStats ? 'rotate-180' : 'rotate-0'}`} viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
-            </svg>
-            {showDetailStats
-              ? "Hide Detailed Statistics"
-              : "Show Detailed Statistics"}
-          </button>
-        </div>
-
-        {/* Detailed Stats Section */}
-        <AnimatePresence>
-        {showDetailStats && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6 max-h-[500px] overflow-y-auto p-6 bg-white rounded-xl shadow-2xl border border-gray-100">
-
-              <h3 className="col-span-full text-xl font-bold text-gray-700 mb-2 border-b border-gray-200 pb-2">Genre Counts</h3>
-              {Object.entries(genreCount).map(([genre, count]) => (
+        {songs.length > 0 && (
+            <div ref={statsRef} className="pt-8">
+                <h2 className="text-3xl font-extrabold text-gray-800 mt-12 mb-6">📊 Catalog Statistics Report</h2>
+            
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
+              {[
+                {
+                  icon: "🎵",
+                  number: totalSongs,
+                  label: "Total Songs",
+                  color: "purple",
+                },
+                {
+                  icon: "🎤",
+                  number: uniqueArtists,
+                  label: "Unique Artists",
+                  color: "pink",
+                },
+                {
+                  icon: "💿",
+                  number: uniqueAlbums,
+                  label: "Unique Albums",
+                  color: "orange",
+                },
+                {
+                  icon: "🎧",
+                  number: mostCommonGenre,
+                  label: "Most Common Genre",
+                  color: "teal",
+                },
+              ].map((stat, index) => (
                 <div
-                  key={genre}
-                  className="bg-green-50 p-4 rounded-lg shadow-sm text-left border-l-4 border-green-400"
+                  key={index}
+                  className={`bg-white p-5 rounded-xl shadow-lg text-center border-b-4 border-${stat.color}-400 hover:scale-[1.02] transition duration-200 cursor-default`}
                 >
-                  <p className="text-sm text-gray-500 font-medium uppercase truncate">
-                    {genre}
-                  </p>
-                  <p className="text-3xl font-extrabold text-gray-800">{count}</p>
-                </div>
-              ))}
-
-              <h3 className="col-span-full text-xl font-bold text-gray-700 mt-6 mb-2 border-b border-gray-200 pb-2">Artist Breakdown</h3>
-              {artistStatsCount.map(({ artist, songs, albums }) => (
-                <div
-                  key={artist}
-                  className="bg-yellow-50 p-4 rounded-lg shadow-sm text-left border-l-4 border-yellow-400"
-                >
-                  <p className="text-sm text-gray-500 font-medium truncate">
-                    {artist}
-                  </p>
-                  <p className="text-xl font-bold text-gray-800">
-                    {songs} <span className="text-sm font-normal text-gray-500">Songs</span> / {albums} <span className="text-sm font-normal text-gray-500">Albums</span>
-                  </p>
-                </div>
-              ))}
-              
-              <h3 className="col-span-full text-xl font-bold text-gray-700 mt-6 mb-2 border-b border-gray-200 pb-2">Album Track Counts</h3>
-              {Object.entries(albumStats).map(([album, count]) => (
-                <div
-                  key={album}
-                  className="bg-blue-50 p-4 rounded-lg shadow-sm text-left border-l-4 border-blue-400"
-                >
-                  <p className="text-sm text-gray-500 font-medium truncate">
-                    {album}
-                  </p>
-                  <p className="text-3xl font-extrabold text-gray-800">{count}</p>
+                  <div className={`mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-${stat.color}-100 text-2xl mb-2`}>
+                    {stat.icon}
+                  </div>
+                  <p className="text-3xl font-extrabold text-gray-800 truncate">{stat.number}</p>
+                  <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
                 </div>
               ))}
             </div>
-          </motion.div>
+
+            {/* Toggle Button for Detailed Stats */}
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => setShowDetailStats(!showDetailStats)}
+                className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold py-3 px-6 rounded-full transition duration-300 shadow-md flex items-center text-lg"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 mr-2 transition-transform ${showDetailStats ? 'rotate-180' : 'rotate-0'}`} viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
+                </svg>
+                {showDetailStats
+                  ? "Hide Detailed Statistics"
+                  : "Show Detailed Statistics"}
+              </button>
+            </div>
+
+            {/* Detailed Stats Section */}
+            <AnimatePresence>
+            {showDetailStats && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6 max-h-[500px] overflow-y-auto p-6 bg-white rounded-xl shadow-2xl border border-gray-100">
+
+                  <h3 className="col-span-full text-xl font-bold text-gray-700 mb-2 border-b border-gray-200 pb-2">Genre Counts</h3>
+                  {Object.entries(genreCount).map(([genre, count]) => (
+                    <div
+                      key={genre}
+                      className="bg-green-50 p-4 rounded-lg shadow-sm text-left border-l-4 border-green-400"
+                    >
+                      <p className="text-sm text-gray-500 font-medium uppercase truncate">
+                        {genre}
+                      </p>
+                      <p className="text-3xl font-extrabold text-gray-800">{count}</p>
+                    </div>
+                  ))}
+
+                  <h3 className="col-span-full text-xl font-bold text-gray-700 mt-6 mb-2 border-b border-gray-200 pb-2">Artist Breakdown</h3>
+                  {artistStatsCount.sort((a, b) => b.songs - a.songs).map(({ artist, songs, albums }) => (
+                    <div
+                      key={artist}
+                      className="bg-yellow-50 p-4 rounded-lg shadow-sm text-left border-l-4 border-yellow-400"
+                    >
+                      <p className="text-sm text-gray-500 font-medium truncate">
+                        {artist}
+                      </p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {songs} <span className="text-sm font-normal text-gray-500">Songs</span> / {albums} <span className="text-sm font-normal text-gray-500">Albums</span>
+                      </p>
+                    </div>
+                  ))}
+                  
+                  <h3 className="col-span-full text-xl font-bold text-gray-700 mt-6 mb-2 border-b border-gray-200 pb-2">Album Track Counts</h3>
+                  {Object.entries(albumStats).sort(([, countA], [, countB]) => countB - countA).map(([album, count]) => (
+                    <div
+                      key={album}
+                      className="bg-blue-50 p-4 rounded-lg shadow-sm text-left border-l-4 border-blue-400"
+                    >
+                      <p className="text-sm text-gray-500 font-medium truncate">
+                        {album}
+                      </p>
+                      <p className="text-3xl font-extrabold text-gray-800">{count}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+            </AnimatePresence>
+            </div>
         )}
-        </AnimatePresence>
-
 
         {/* Delete Modal */}
         <AnimatePresence>
