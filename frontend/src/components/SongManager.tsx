@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "framer-motion";
 
 /**
  * Mock Song Type Definition
- * This replaces the external import from "../types/song"
  */
 type Song = {
   _id: string;
@@ -17,13 +16,35 @@ type Song = {
 
 type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
-// Mock data to start with
+// Generate a large, diverse set of mock data to ensure scrolling
+const genres = ['Rock', 'Pop', 'Jazz', 'Electronic', 'Classical', 'Hip Hop', 'Indie'];
+const artists = ['Queen', 'The Beatles', 'Nirvana', 'Michael Jackson', 'Led Zeppelin', 'Daft Punk', 'Mozart', 'Taylor Swift'];
+const albums = ['A Night at the Opera', 'Abbey Road', 'Nevermind', 'Thriller', 'IV', 'Discovery', 'Requiem', '1989'];
+
+const generateMockSongs = (count: number): Song[] => {
+  const songs: Song[] = [];
+  for (let i = 1; i <= count; i++) {
+    const genre = genres[i % genres.length];
+    const artist = artists[Math.floor(i / 10) % artists.length];
+    const album = albums[Math.floor(i / 15) % albums.length];
+    
+    songs.push({
+      _id: String(Date.now() + i),
+      Title: `Mock Track ${i}`,
+      Artist: artist,
+      Album: album,
+      Genre: genre,
+    });
+  }
+  return songs;
+};
+
 const initialSongs: Song[] = [
-  { _id: '1', Title: 'Bohemian Rhapsody', Artist: 'Queen', Album: 'A Night at the Opera', Genre: 'Rock' },
-  { _id: '2', Title: 'Imagine', Artist: 'John Lennon', Album: 'Imagine', Genre: 'Pop' },
-  { _id: '3', Title: 'Smells Like Teen Spirit', Artist: 'Nirvana', Album: 'Nevermind', Genre: 'Grunge' },
-  { _id: '4', Title: 'Thriller', Artist: 'Michael Jackson', Album: 'Thriller', Genre: 'Pop' },
-  { _id: '5', Title: 'Stairway to Heaven', Artist: 'Led Zeppelin', Album: 'Led Zeppelin IV', Genre: 'Rock' },
+    // Keep a few classics at the top
+    { _id: '1', Title: 'Bohemian Rhapsody', Artist: 'Queen', Album: 'A Night at the Opera', Genre: 'Rock' },
+    { _id: '2', Title: 'Imagine', Artist: 'John Lennon', Album: 'Imagine', Genre: 'Pop' },
+    { _id: '3', Title: 'Smells Like Teen Spirit', Artist: 'Nirvana', Album: 'Nevermind', Genre: 'Grunge' },
+    ...generateMockSongs(100) // Generate 100 additional songs
 ];
 
 /**
@@ -43,34 +64,41 @@ const SongContext = createContext<{
 
 const SongProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [songs, setSongs] = useState<Song[]>(initialSongs);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Simulate API calls delay and ID generation
   const addSong = useCallback((newSongData: Omit<Song, '_id'>) => {
+    setIsLoading(true);
     setTimeout(() => {
       const newSong: Song = {
         ...newSongData,
         _id: String(Date.now()), // Simple ID generation
       };
       setSongs(prev => [...prev, newSong]);
+      setIsLoading(false);
     }, 500);
   }, []);
 
   const updateSong = useCallback((updatedSong: Song) => {
+    setIsLoading(true);
     setTimeout(() => {
       setSongs(prev => prev.map(s => (s._id === updatedSong._id ? updatedSong : s)));
+      setIsLoading(false);
     }, 500);
   }, []);
 
   const deleteSong = useCallback((id: string) => {
+    setIsLoading(true);
     setTimeout(() => {
       setSongs(prev => prev.filter(s => s._id !== id));
+      setIsLoading(false);
     }, 300);
   }, []);
 
-  const contextValue = useMemo(() => ({ songs, addSong, updateSong, deleteSong }), [songs, addSong, updateSong, deleteSong]);
+  const contextValue = useMemo(() => ({ songs, addSong, updateSong, deleteSong, isLoading }), [songs, addSong, updateSong, deleteSong, isLoading]);
 
   return (
-    <SongContext.Provider value={contextValue}>
+    <SongContext.Provider value={contextValue as any}>
       {children}
     </SongContext.Provider>
   );
@@ -83,10 +111,10 @@ interface SongFormProps {
   onUpdate: (updatedSong: Song) => void;
   onSave: (newSong: Omit<Song, "_id">) => void;
   onClose?: () => void;
+  isLoading: boolean;
 }
 
-const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSave }) => {
-  // Initial state structure matches the data expected for adding/editing (without _id)
+const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSave, isLoading }) => {
   const [song, setSong] = useState<Omit<Song, "_id">>({
     Title: "",
     Artist: "",
@@ -98,7 +126,6 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
 
   useEffect(() => {
     if (songToEdit) {
-      // Set the form state based on the song being edited
       setSong({
         Title: songToEdit.Title,
         Artist: songToEdit.Artist,
@@ -106,7 +133,6 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
         Genre: songToEdit.Genre,
       });
     } else {
-      // Clear form when switching to Add mode
       setSong({ Title: "", Artist: "", Album: "", Genre: "" });
     }
   }, [songToEdit]);
@@ -131,7 +157,6 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    // Type assertion is safe here as name corresponds to a valid key in Song
     setSong((prev) => ({ ...prev, [name as keyof Omit<Song, "_id">]: value }));
     validateField(name as keyof Omit<Song, "_id">, value);
   };
@@ -146,13 +171,11 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
       validateField("Album", song.Album) &&
       validateField("Genre", song.Genre);
 
-    if (!isValid) return;
+    if (!isValid || isLoading) return;
 
     if (songToEdit) {
-      // Call the external update handler, including the existing _id
       onUpdate({ ...songToEdit, ...song });
     } else {
-      // Call the external save handler for a new song
       onSave(song);
     }
 
@@ -161,7 +184,6 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
     onClose?.();
   };
 
-  // Helper function to build the input class string using Tailwind
   const getInputClass = (name: keyof Omit<Song, '_id'>) => {
     const base =
       "w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition duration-150 shadow-sm text-gray-800 placeholder-gray-400";
@@ -189,6 +211,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
           value={song.Title}
           onChange={handleChange}
           className={getInputClass('Title')}
+          disabled={isLoading}
         />
         {errors.Title && (
           <p className="text-red-500 text-sm mt-1 font-medium">{errors.Title}</p>
@@ -204,6 +227,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
           value={song.Artist}
           onChange={handleChange}
           className={getInputClass('Artist')}
+          disabled={isLoading}
         />
         {errors.Artist && (
           <p className="text-red-500 text-sm mt-1 font-medium">{errors.Artist}</p>
@@ -219,6 +243,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
           value={song.Album}
           onChange={handleChange}
           className={getInputClass('Album')}
+          disabled={isLoading}
         />
         {errors.Album && (
           <p className="text-red-500 text-sm mt-1 font-medium">{errors.Album}</p>
@@ -234,6 +259,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
           value={song.Genre}
           onChange={handleChange}
           className={getInputClass('Genre')}
+          disabled={isLoading}
         />
         {errors.Genre && (
           <p className="text-red-500 text-sm mt-1 font-medium">{errors.Genre}</p>
@@ -244,15 +270,27 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          className="flex-1 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition duration-200 shadow-lg text-lg"
+          className="flex-1 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition duration-200 shadow-lg text-lg disabled:bg-blue-400 disabled:cursor-not-allowed"
+          disabled={isLoading}
         >
-          {songToEdit ? "💾 Update Song" : "➕ Add Song"}
+          {isLoading ? (
+            <span className="flex items-center justify-center">
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Saving...
+            </span>
+          ) : (
+            songToEdit ? "💾 Update Song" : "➕ Add Song"
+          )}
         </button>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 bg-gray-300 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-400 transition duration-200 shadow-md text-lg"
+            className="flex-1 bg-gray-300 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-400 transition duration-200 shadow-md text-lg disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+            disabled={isLoading}
           >
             Cancel
           </button>
@@ -267,7 +305,7 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onClose, onSa
 
 const SongManager: React.FC = () => {
   // Use Context instead of Redux hooks
-  const { songs, addSong, updateSong, deleteSong } = useContext(SongContext);
+  const { songs, addSong, updateSong, deleteSong, isLoading } = useContext(SongContext) as any;
 
   // Form & Modal States
   const [showForm, setShowForm] = useState(false);
@@ -281,7 +319,11 @@ const SongManager: React.FC = () => {
   >("Title");
 
   // Detail stats toggle
-  const [showDetailStats, setShowDetailStats] = useState(false);
+  const [showDetailStats, setShowDetailStats] = useState(true); // Show stats by default
+  
+  // Ref for statistics section to enable smooth scrolling jump
+  const statsRef = React.useRef<HTMLDivElement>(null);
+
 
   // Handlers using Context actions
   const handleEdit = (song: Song) => {
@@ -311,10 +353,17 @@ const SongManager: React.FC = () => {
     }
     setDeleteSongId(null);
   }
+  
+  const handleScrollToStats = () => {
+    if (statsRef.current) {
+        statsRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
 
   // Filtered songs
   const filteredSongs = useMemo(() => {
-    return songs.filter((song) => {
+    return songs.filter((song: Song) => {
       const value = song[filterField] as string;
       return value.toLowerCase().includes(filterText.toLowerCase());
     });
@@ -323,12 +372,12 @@ const SongManager: React.FC = () => {
   // Statistics calculation (memoized for performance)
   const { totalSongs, uniqueArtists, uniqueAlbums, genreCount, artistStatsCount, albumStats, mostCommonGenre } = useMemo(() => {
     const totalSongs = songs.length;
-    const uniqueArtists = Array.from(new Set(songs.map((s) => s.Artist))).length;
-    const uniqueAlbums = Array.from(new Set(songs.map((s) => s.Album))).length;
+    const uniqueArtists = Array.from(new Set(songs.map((s: Song) => s.Artist))).length;
+    const uniqueAlbums = Array.from(new Set(songs.map((s: Song) => s.Album))).length;
 
     // Genre count
     const genreCount: Record<string, number> = {};
-    songs.forEach((s) => {
+    songs.forEach((s: Song) => {
       genreCount[s.Genre] = (genreCount[s.Genre] || 0) + 1;
     });
     const mostCommonGenre =
@@ -336,7 +385,7 @@ const SongManager: React.FC = () => {
 
     // Artist stats
     const artistStats: Record<string, { songs: number; albums: Set<string> }> = {};
-    songs.forEach((s) => {
+    songs.forEach((s: Song) => {
       if (!artistStats[s.Artist])
         artistStats[s.Artist] = { songs: 0, albums: new Set() };
       artistStats[s.Artist].songs += 1;
@@ -350,7 +399,7 @@ const SongManager: React.FC = () => {
 
     // Album stats
     const albumStats: Record<string, number> = {};
-    songs.forEach((s) => {
+    songs.forEach((s: Song) => {
       albumStats[s.Album] = (albumStats[s.Album] || 0) + 1;
     });
 
@@ -361,6 +410,15 @@ const SongManager: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-['Inter']">
       <div className="max-w-6xl mx-auto">
+        
+        {/* Floating Jump Button for Large Lists (Restored) */}
+        <button
+            onClick={handleScrollToStats}
+            title="Jump to Statistics Report"
+            className="fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl hover:bg-indigo-700 transition duration-300 transform hover:scale-110"
+        >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8v8m-4-8v8m-4-8v8m9-5a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10z"></path></svg>
+        </button>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-lg border-t-4 border-indigo-500">
@@ -375,6 +433,7 @@ const SongManager: React.FC = () => {
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "bg-indigo-500 hover:bg-indigo-600 text-white"
             }`}
+            disabled={isLoading}
           >
             {showForm ? "❌ Close Form" : "➕ Add New Song"}
           </button>
@@ -395,6 +454,7 @@ const SongManager: React.FC = () => {
                 onUpdate={handleUpdate}
                 onSave={handleSave}
                 onClose={() => setShowForm(false)}
+                isLoading={isLoading}
               />
             </motion.div>
           )}
@@ -409,6 +469,7 @@ const SongManager: React.FC = () => {
                 value={filterField}
                 onChange={(e) => setFilterField(e.target.value as any)}
                 className="ml-2 p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                disabled={isLoading}
               >
                 <option value="Title">Title</option>
                 <option value="Artist">Artist</option>
@@ -423,11 +484,23 @@ const SongManager: React.FC = () => {
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 w-full shadow-inner text-gray-800"
+              disabled={isLoading}
             />
           </div>
         </div>
+        
+        {/* Loading Indicator for List (when operations are pending) */}
+        {isLoading && (
+            <div className="flex items-center justify-center p-4 bg-indigo-50 rounded-xl mb-4 text-indigo-700 font-semibold shadow-inner">
+                <svg className="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating catalog...
+            </div>
+        )}
 
-        {/* Song List */}
+        {/* Song List (Restored Update/Delete Buttons) */}
         <div className="space-y-4">
           {filteredSongs.length === 0 ? (
             <p className="text-center text-gray-500 py-8 text-xl font-medium border border-dashed p-6 rounded-xl">
@@ -462,11 +535,12 @@ const SongManager: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons (Restored) */}
                 <div className="flex space-x-2 mt-4 lg:mt-0 w-full lg:w-auto justify-end">
                   <button
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center text-sm"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center text-sm disabled:bg-yellow-300"
                     onClick={() => handleEdit(song)}
+                    disabled={isLoading}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
@@ -475,8 +549,9 @@ const SongManager: React.FC = () => {
                     Edit
                   </button>
                   <button
-                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center text-sm"
+                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center text-sm disabled:bg-red-300"
                     onClick={() => setDeleteSongId(song._id)}
+                    disabled={isLoading}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clipRule="evenodd" />
@@ -489,6 +564,11 @@ const SongManager: React.FC = () => {
           )}
         </div>
 
+        {/* --- STATISTICS REPORT SECTION (Targeted by Jump Button) --- */}
+        <div ref={statsRef} className="pt-8">
+            <h2 className="text-3xl font-extrabold text-gray-800 mt-12 mb-6">📊 Catalog Statistics Report</h2>
+        </div>
+        
         {/* Summary Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
           {[
@@ -624,14 +704,16 @@ const SongManager: React.FC = () => {
               {/* Modal Buttons */}
               <div className="flex justify-end space-x-3">
                 <button
-                  className="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition duration-150 shadow-md text-base"
+                  className="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition duration-150 shadow-md text-base disabled:bg-red-400"
                   onClick={handleDeleteConfirm}
+                  disabled={isLoading}
                 >
                   Yes, Delete It
                 </button>
                 <button
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-lg transition duration-150 shadow-md text-base"
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-lg transition duration-150 shadow-md text-base disabled:bg-gray-200"
                   onClick={() => setDeleteSongId(null)}
+                  disabled={isLoading}
                 >
                   No, Keep It
                 </button>
@@ -652,6 +734,9 @@ export default function App() {
     const script = document.createElement('script');
     script.src = "https://cdn.tailwindcss.com";
     document.head.appendChild(script);
+    
+    // Set smooth scrolling behavior on the body element
+    document.body.style.scrollBehavior = 'smooth';
   }, []);
   
   return (
