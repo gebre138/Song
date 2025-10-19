@@ -10,3 +10,5 @@ build/
 
 # system files
 .DS_Store
+.env.local        
+.env.*.local     

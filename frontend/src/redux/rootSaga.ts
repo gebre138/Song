@@ -1,6 +1,7 @@
 import { all, takeEvery, put, call } from "redux-saga/effects";
 import axios, { AxiosResponse } from "axios";
 import { Song } from "../types/song";
+// import dotenv from "dotenv";
 import {
   fetchSongsRequest,
   fetchSongsSuccess,
@@ -11,10 +12,9 @@ import {
   updateSongRequest,
   updateSongSuccess,
 } from "./songs/songsSlice";
-
-const API_URL = "http://localhost:5000/songs";
-
-// Type helper for generator
+// const API_URL = "http://localhost:5000/songs";
+// const API_URL = "https://song-8p41.onrender.com/songs";
+const API_URL = process.env.REACT_APP_API_URL!;
 type SagaReturnType<T> = Generator<any, T, any>;
 
 // Fetch songs
