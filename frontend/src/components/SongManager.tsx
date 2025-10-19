@@ -391,7 +391,7 @@ const SongManager: React.FC = () => {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-['Inter']">
       <div className="max-w-6xl mx-auto">
         
-        {/* Floating Jump Button for Large Lists */}
+        {/* Floating Jump Button for Large Lists (Original - kept for large lists) */}
         {songs.length > 5 && (
             <button
                 onClick={handleScrollToStats}
@@ -402,23 +402,41 @@ const SongManager: React.FC = () => {
             </button>
         )}
 
-        {/* Header */}
+        {/* Header - MODIFIED to include View Stats Button */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-lg border-t-4 border-indigo-500">
           <h1 className="text-3xl font-extrabold text-gray-800 mb-4 sm:mb-0">
             🎶 Music Catalog Manager
           </h1>
-          {/* Add/Close Button */}
-          <button
-            onClick={handleAddNew}
-            className={`px-6 py-3 font-semibold rounded-full text-lg transition duration-300 shadow-md transform hover:scale-[1.05] ${
-              showForm
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-indigo-500 hover:bg-indigo-600 text-white"
-            }`}
-            disabled={isLoading}
-          >
-            {showForm ? "❌ Close Form" : "➕ Add New Song"}
-          </button>
+          
+          {/* Button Group (New wrapper to align buttons) */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* NEW View Statistics Button - Visible when songs exist */}
+            {songs.length > 0 && (
+              <button
+                onClick={handleScrollToStats}
+                className="px-6 py-3 font-semibold rounded-full text-lg transition duration-300 shadow-md transform hover:scale-[1.05] bg-teal-500 hover:bg-teal-600 text-white disabled:bg-teal-300 flex items-center justify-center"
+                disabled={isLoading}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 00-1.414 1.414L7.586 13H5V5h12v3a1 1 0 102 0V5a2 2 0 00-2-2H3z" clipRule="evenodd" />
+                </svg>
+                View Stats ({totalSongs})
+              </button>
+            )}
+            
+            {/* Add/Close Button (Original) */}
+            <button
+              onClick={handleAddNew}
+              className={`px-6 py-3 font-semibold rounded-full text-lg transition duration-300 shadow-md transform hover:scale-[1.05] flex items-center justify-center ${
+                showForm
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "bg-indigo-500 hover:bg-indigo-600 text-white"
+              }`}
+              disabled={isLoading}
+            >
+              {showForm ? "❌ Close Form" : "➕ Add New Song"}
+            </button>
+          </div>
         </div>
 
         {/* Song Form */}
@@ -586,9 +604,17 @@ const SongManager: React.FC = () => {
               ].map((stat, index) => (
                 <div
                   key={index}
-                  className={`bg-white p-5 rounded-xl shadow-lg text-center border-b-4 border-${stat.color}-400 hover:scale-[1.02] transition duration-200 cursor-default`}
+                  // Tailwind colors need to be fully defined for the JIT compiler to pick them up, even if they are dynamic.
+                  // Since 'purple', 'pink', 'orange', 'teal' are not standard Tailwind 3.x utility names,
+                  // I will map them to standard colors to ensure they display correctly.
+                  // purple -> indigo, pink -> rose, orange -> amber, teal -> emerald
+                  className={`bg-white p-5 rounded-xl shadow-lg text-center border-b-4 border-${
+                    stat.color === 'purple' ? 'indigo' : stat.color === 'pink' ? 'rose' : stat.color === 'orange' ? 'amber' : 'emerald'
+                  }-400 hover:scale-[1.02] transition duration-200 cursor-default`}
                 >
-                  <div className={`mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-${stat.color}-100 text-2xl mb-2`}>
+                  <div className={`mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-${
+                    stat.color === 'purple' ? 'indigo' : stat.color === 'pink' ? 'rose' : stat.color === 'orange' ? 'amber' : 'emerald'
+                  }-100 text-2xl mb-2`}>
                     {stat.icon}
                   </div>
                   <p className="text-3xl font-extrabold text-gray-800 truncate">{stat.number}</p>
