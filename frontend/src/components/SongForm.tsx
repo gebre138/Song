@@ -1,6 +1,6 @@
+/** @jsxImportSource @emotion/react */
 import React, { useState, useEffect } from "react";
 import { Song } from "../types/song";
-import '../index.css';
 
 type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
@@ -38,18 +38,44 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onSave, onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Validate all fields before submitting
     if (!fields.every(f => validateField(f, song[f]))) return;
+    
+    // Perform save or update action
     songToEdit ? onUpdate?.({ ...songToEdit, ...song }) : onSave?.(song);
+    
+    // Reset state and close form
     setSong({ Title: "", Artist: "", Album: "", Genre: "" });
     onClose?.();
   };
 
-  const getInputClass = (name: keyof Omit<Song, "_id">) =>
-    `w-full p-3 rounded-lg shadow-sm text-gray-800 border ${errors[name] ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-blue-300"} focus:outline-none focus:ring-2 transition`;
-
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-6 shadow-xl rounded-xl space-y-4 max-w-lg mx-auto border border-gray-200">
-      <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">{songToEdit ? "Edit Song" : "Add New Song"}</h2>
+    <form
+      onSubmit={handleSubmit}
+      css={{
+        backgroundColor: "#fff",
+        padding: "1.5rem",
+        borderRadius: "1rem",
+        boxShadow: "0 10px 15px rgba(0,0,0,0.1)",
+        maxWidth: "32rem",
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.75rem",
+      }}
+    >
+      <h2
+        css={{
+          fontSize: "1.25rem",
+          fontWeight: 700,
+          color: "#1f2937",
+          borderBottom: "1px solid #e5e7eb",
+          paddingBottom: "0.5rem",
+          marginBottom: "1rem",
+        }}
+      >
+        {songToEdit ? "Edit Song" : "Add New Song"}
+      </h2>
 
       {fields.map(f => (
         <div key={f}>
@@ -59,18 +85,70 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onSave, onClo
             placeholder={f}
             value={song[f]}
             onChange={handleChange}
-            className={getInputClass(f)}
+            css={{
+              width: "100%",
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              border: errors[f] ? "1px solid #ef4444" : "1px solid #d1d5db",
+              outline: "none",
+              fontSize: "1rem",
+              boxShadow: errors[f] ? "0 0 0 3px rgba(248,113,113,0.3)" : "none",
+              transition: "all 0.2s",
+              "&:focus": {
+                // Keep focus ring for input fields
+                boxShadow: errors[f] ? "0 0 0 3px rgba(248,113,113,0.3)" : "0 0 0 3px rgba(59,130,246,0.3)",
+                borderColor: errors[f] ? "#ef4444" : "#3b82f6",
+              },
+            }}
           />
-          {errors[f] && <p className="text-red-500 text-sm mt-1 font-medium">{errors[f]}</p>}
+          {errors[f] && (
+            <p css={{ color: "#ef4444", fontSize: "0.875rem", marginTop: "0.25rem" }}>{errors[f]}</p>
+          )}
         </div>
       ))}
 
-      <div className="flex justify-center gap-4 mt-4">
-        <button type="submit" className="w-1/2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-lg">
+      <div css={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+        {/* Submit Button */}
+        <button
+          type="submit"
+          css={{
+            flex: 1,
+            padding: "0.75rem",
+            borderRadius: "0.5rem",
+            fontWeight: 600,
+            backgroundColor: "#2563eb",
+            color: "#fff",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            // Removed default border/outline
+            border: "none", 
+            outline: "none",
+            "&:hover": { backgroundColor: "#1d4ed8" },
+          }}
+        >
           {songToEdit ? "Update Song" : "Add Song"}
         </button>
+
+        {/* Cancel Button */}
         {onClose && (
-          <button type="button" onClick={onClose} className="w-1/2 px-6 py-3 bg-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-400 transition shadow-md">
+          <button
+            type="button"
+            onClick={onClose}
+            css={{
+              flex: 1,
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              fontWeight: 600,
+              backgroundColor: "#d1d5db",
+              color: "#374151",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              // Removed default border/outline
+              border: "none", 
+              outline: "none",
+              "&:hover": { backgroundColor: "#9ca3af" },
+            }}
+          >
             Cancel
           </button>
         )}
@@ -78,4 +156,5 @@ const SongForm: React.FC<SongFormProps> = ({ songToEdit, onUpdate, onSave, onClo
     </form>
   );
 };
+
 export default SongForm;

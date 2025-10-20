@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+/** @jsxImportSource @emotion/react */
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../redux/store";
@@ -10,6 +11,222 @@ import {
 } from "../redux/songs/songsSlice";
 import { Song } from "../types/song";
 import SongForm from "./SongForm";
+import { css } from "@emotion/react";
+
+// --- Reusable CSS Styles ---
+
+const cardBase = css({
+  position: "relative",
+  borderRadius: "1rem",
+  padding: "1rem",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+});
+
+const buttonBase = css({
+  padding: "0.6rem 1.4rem",
+  borderRadius: "1rem",
+  fontWeight: 500,
+  cursor: "pointer",
+  transition: "all 0.2s",
+  border: "none",
+  outline: "none",
+  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+});
+
+const primaryButton = css(buttonBase, {
+  backgroundColor: "#2563eb",
+  color: "#fff",
+  "&:hover": { backgroundColor: "#1d4ed8" },
+});
+
+const secondaryButton = css(buttonBase, {
+  backgroundColor: "#e5e7eb",
+  color: "#000",
+  "&:hover": { backgroundColor: "#d1d5db" },
+});
+
+// --- Custom Chart Components (Unchanged for functionality) ---
+
+// 1. Horizontal Bar Chart (Used for Genre Counts)
+const BarChart: React.FC<{ data: Record<string, number>, color: string, maxItems?: number }> = ({ data, color, maxItems = 5 }) => {
+  const sortedData = useMemo(() => 
+    Object.entries(data).sort(([, a], [, b]) => b - a).slice(0, maxItems),
+    [data, maxItems]
+  );
+  if (sortedData.length === 0) return <div css={{ padding: '1rem', color: '#6b7280' }}>No data to display.</div>;
+
+  const maxCount = sortedData[0]?.[1] || 1;
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb' }}>
+      {sortedData.map(([key, count]) => {
+        const percentage = (count / maxCount) * 100;
+        return (
+          <motion.div 
+            key={key} 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            css={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <span css={{ fontSize: '0.75rem', fontWeight: 600, width: '4rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{key}</span>
+            <div css={{ flex: 1, height: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.25rem', overflow: 'hidden' }}>
+              <motion.div
+                initial={{ width: '0%' }}
+                animate={{ width: `${percentage}%` }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                css={{ height: '100%', backgroundColor: color, borderRadius: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '0.25rem' }}
+              />
+            </div>
+            <span css={{ fontSize: '0.75rem', fontWeight: 700, width: '1.5rem', flexShrink: 0, textAlign: 'right' }}>{count}</span>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
+
+// 2. Donut Chart (Used for Artist Song Breakdown - CSS-only)
+const DonutChart: React.FC<{ data: Record<string, number>, color: string, total: number }> = ({ data, color, total }) => {
+    const sortedData = useMemo(() => 
+        Object.entries(data).sort(([, a], [, b]) => b - a).slice(0, 3), // Show top 3, group the rest
+        [data]
+    );
+
+    let currentAngle = 0;
+    const slices = sortedData.map(([key, count], index) => {
+        const percentage = (count / total) * 100;
+        const angle = (count / total) * 360;
+        const slice = {
+            key,
+            count,
+            percentage: percentage.toFixed(1),
+            start: currentAngle,
+            end: currentAngle + angle,
+            color: index === 0 ? color : (index === 1 ? '#6366f1' : '#f97316'), 
+        };
+        currentAngle += angle;
+        return slice;
+    });
+
+    const remaining = total - sortedData.reduce((sum, [, count]) => sum + count, 0);
+    if (remaining > 0) {
+        const remainingAngle = (remaining / total) * 360;
+        slices.push({
+            key: 'Other',
+            count: remaining,
+            percentage: ((remaining / total) * 100).toFixed(1),
+            start: currentAngle,
+            end: 360,
+            color: '#d1d5db',
+        });
+    }
+
+    const conics = slices.map(s => `${s.color} ${s.start}deg ${s.end}deg`).join(', ');
+
+    return (
+        <div css={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '0.75rem', backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb' }}>
+            {/* Chart */}
+            <div css={{ 
+                width: '5rem', 
+                height: '5rem', 
+                borderRadius: '50%', 
+                background: `conic-gradient(${conics})`,
+                position: 'relative',
+                boxShadow: '0 0 0 4px #e5e7eb inset',
+                flexShrink: 0,
+            }}>
+                {/* Center Hole */}
+                <div css={{ 
+                    position: 'absolute', 
+                    inset: '1.5rem', 
+                    backgroundColor: '#fff', 
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: color,
+                }}>
+                    {total}
+                </div>
+            </div>
+
+            {/* Legend */}
+            <div css={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
+                {slices.map((s) => (
+                    <div key={s.key} css={{ display: 'flex', alignItems: 'center', fontSize: '0.75rem', fontWeight: 500 }}>
+                        <span css={{ height: '0.5rem', width: '0.5rem', backgroundColor: s.color, borderRadius: '50%', marginRight: '0.5rem' }}></span>
+                        <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.key}</span>
+                        <span css={{ fontWeight: 700, flexShrink: 0 }}>{s.percentage}%</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+
+// 3. Simple Stacked Bar Chart (Used for Album Breakdown)
+const StackedBarChart: React.FC<{ data: Record<string, number>, color: string, maxItems?: number, total: number }> = ({ data, color, maxItems = 5, total }) => {
+    const sortedData = useMemo(() => 
+        Object.entries(data).sort(([, a], [, b]) => b - a).slice(0, maxItems),
+        [data, maxItems]
+    );
+    if (sortedData.length === 0) return <div css={{ padding: '1rem', color: '#6b7280' }}>No data to display.</div>;
+
+    let currentOffset = 0;
+    const segments = sortedData.map(([key, count], index) => {
+        const width = (count / total) * 100;
+        const segment = {
+            key,
+            count,
+            width,
+            offset: currentOffset,
+            color: index === 0 ? color : (index === 1 ? '#f97316' : '#8b5cf6'),
+        };
+        currentOffset += width;
+        return segment;
+    });
+
+    return (
+        <div css={{ padding: '0.75rem', backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb' }}>
+            <div css={{ display: 'flex', height: '1.5rem', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1) inset' }}>
+                {segments.map((s) => (
+                    <motion.div
+                        key={s.key}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${s.width}%` }}
+                        transition={{ duration: 0.5, delay: s.offset / 100 }}
+                        css={{ 
+                            height: '100%', 
+                            backgroundColor: s.color, 
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    />
+                ))}
+            </div>
+            {/* Legend/Labels */}
+            <div css={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {segments.map((s) => (
+                    <div key={s.key} css={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                        <div css={{ display: 'flex', alignItems: 'center' }}>
+                            <span css={{ height: '0.5rem', width: '0.5rem', backgroundColor: s.color, borderRadius: '50%', marginRight: '0.5rem' }}></span>
+                            <span css={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.key}</span>
+                        </div>
+                        <span css={{ fontWeight: 700 }}>{s.count} songs</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- SongManager Component ---
 
 const SongManager: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -32,37 +249,87 @@ const SongManager: React.FC = () => {
     setShowForm(true); 
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
+
   const handleAddNew = () => {
     setEditSong(null); 
     setShowForm(!showForm); 
     if (!showForm) setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
-  const handleSave = (newSong: Omit<Song, "_id">) => { dispatch(addSongRequest(newSong)); setShowForm(false); };
-  const handleUpdate = (updatedSong: Song) => { dispatch(updateSongRequest(updatedSong)); setEditSong(null); setShowForm(false); };
+
+  const handleSave = (newSong: Omit<Song, "_id">) => { 
+    dispatch(addSongRequest(newSong)); 
+    setShowForm(false); 
+  };
+
+  const handleUpdate = (updatedSong: Song) => { 
+    dispatch(updateSongRequest(updatedSong)); 
+    setEditSong(null); 
+    setShowForm(false); 
+  };
+
   const handleJumpToStats = () => statsRef.current?.scrollIntoView({ behavior: "smooth" });
 
   const filteredSongs = songs.filter((s) => (s[filterField] as string).toLowerCase().includes(filterText.toLowerCase()));
 
-  const stats = [
-    { icon: "🎵", value: songs.length, label: "Total Songs", color: "purple" },
-    { icon: "🎤", value: new Set(songs.map((s) => s.Artist)).size, label: "Unique Artists", color: "pink" },
-    { icon: "💿", value: new Set(songs.map((s) => s.Album)).size, label: "Unique Albums", color: "yellow" },
-    { icon: "🎧", value: Object.entries(songs.reduce((acc: Record<string, number>, s) => { acc[s.Genre] = (acc[s.Genre] || 0) + 1; return acc; }, {})).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-", label: "Most Common Genre", color: "green" },
-  ];
+  // --- Data Preparation for Charts (consolidated) ---
+  const totalSongs = songs.length;
+  const genreCount = useMemo(() => songs.reduce((acc: Record<string, number>, s) => { acc[s.Genre] = (acc[s.Genre] || 0) + 1; return acc; }, {}), [songs]);
+  const artistSongCount = useMemo(() => songs.reduce((acc: Record<string, number>, s) => { acc[s.Artist] = (acc[s.Artist] || 0) + 1; return acc; }, {}), [songs]);
+  const albumSongCount = useMemo(() => songs.reduce((acc: Record<string, number>, s) => { acc[s.Album] = (acc[s.Album] || 0) + 1; return acc; }, {}), [songs]);
 
-  const genreCount = songs.reduce((acc: Record<string, number>, s) => { acc[s.Genre]=(acc[s.Genre]||0)+1; return acc; }, {});
-  const artistStats = Object.values(songs.reduce((acc: Record<string, { artist:string; songs:number; albums:Set<string> }>, s) => { if(!acc[s.Artist]) acc[s.Artist]={artist:s.Artist,songs:0,albums:new Set()}; acc[s.Artist].songs+=1; acc[s.Artist].albums.add(s.Album); return acc; }, {})).map(a=>({...a,albums:a.albums.size}));
-  const albumStats = songs.reduce((acc: Record<string, number>, s)=>{ acc[s.Album]=(acc[s.Album]||0)+1; return acc; }, {});
+  const stats = useMemo(() => [
+    { icon: "🎵", value: totalSongs, label: "Total Songs", color: "#8b5cf6" },
+    { icon: "🎤", value: new Set(songs.map((s) => s.Artist)).size, label: "Unique Artists", color: "#ec4899" },
+    { icon: "💿", value: new Set(songs.map((s) => s.Album)).size, label: "Unique Albums", color: "#facc15" },
+    { icon: "🎧", value: Object.entries(genreCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-", label: "Most Common Genre", color: "#22c55e" },
+  ], [totalSongs, songs, genreCount]);
+  // --- End Data Preparation ---
+
+  const songActionBase = css({
+    width: "5.5rem", 
+    padding: "0.5rem 0.8rem", 
+    borderRadius: "0.75rem", 
+    fontWeight: 500, 
+    cursor: "pointer", 
+    transition: "all 0.2s", 
+    border: "none", 
+    outline: "none",
+  });
+  
+  const editButtonCss = css(songActionBase, {
+    backgroundColor: "#2563eb", 
+    color: "#fff", 
+    "&:hover":{ backgroundColor:"#1d4ed8" }
+  });
+  
+  const deleteButtonCss = css(songActionBase, {
+    backgroundColor: "#dc2626", 
+    color: "#fff", 
+    "&:hover":{ backgroundColor:"#b91c1c" }
+  });
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div css={{ maxWidth: "72rem", margin: "0 auto", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       {/* Header */}
-      <header className="flex flex-col md:flex-row justify-between items-center bg-gray-50 rounded-2xl shadow-md p-6 gap-4 relative">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-tl-2xl"></div>
-        <h1 className="flex items-center text-2xl font-bold text-black gap-3"><span className="text-purple-600 text-3xl">🎵</span> Music Catalog Manager</h1>
-        <div className="flex gap-3 flex-wrap">
-          <button className="bg-blue-600 text-white px-5 py-2 rounded-xl shadow-md transition font-medium flex items-center justify-center gap-2" onClick={handleAddNew}>{showForm?"Close Form":"+ Add New Song"}</button>
-          <button className="bg-gray-200 text-black px-4 py-2 rounded-xl shadow-md transition font-medium flex items-center justify-center gap-2" onClick={handleJumpToStats}>📊 Statistics</button>
+      <header css={css(cardBase, { 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "space-between", 
+        padding: "1.5rem", 
+        backgroundColor: "#f9fafb", 
+        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+      })}>
+        <div css={{ position: "absolute", top: 0, left: 0, width: "100%", height: "0.25rem", borderTopLeftRadius: "1rem", borderTopRightRadius: "1rem", background: "linear-gradient(to right, #8b5cf6, #6366f1)" }} />
+        <h1 css={{ display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "1.5rem", fontWeight: 700, color: "#000", marginRight: "1rem" }}>
+          <span css={{ fontSize: "2rem", color: "#8b5cf6" }}>🎵</span> Music Catalog Manager
+        </h1>
+        <div css={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", flexShrink: 0 }}>
+          <button onClick={handleAddNew} css={primaryButton}>
+            {showForm ? "Close Form" : "+ Add New Song"}
+          </button>
+          <button onClick={handleJumpToStats} css={secondaryButton}>
+            📊 Statistics
+          </button>
         </div>
       </header>
 
@@ -75,88 +342,113 @@ const SongManager: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Filter Bar */}
-      <div className="flex flex-col md:flex-row gap-3 bg-gray-50 p-4 rounded-xl shadow-md">
-        <label className="flex items-center gap-2 text-black font-semibold">Filter by:
-          <select value={filterField} onChange={e=>setFilterField(e.target.value as any)} className="border rounded-lg px-3 py-1">
-            <option value="Title">Title</option>
-            <option value="Artist">Artist</option>
-            <option value="Album">Album</option>
-            <option value="Genre">Genre</option>
+      {/* Filter */}
+      <div css={css(cardBase, { display:"flex", gap:"0.75rem", padding:"1rem", backgroundColor:"#f9fafb" })}>
+        <label css={{ display:"flex", alignItems:"center", gap:"0.5rem", fontWeight:600, color:"#000" }}>Filter by:
+          <select value={filterField} onChange={e=>setFilterField(e.target.value as any)} css={{ borderRadius:"0.5rem", padding:"0.25rem 0.5rem", border:"1px solid #d1d5db" }}>
+            {["Title", "Artist", "Album", "Genre"].map(f => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
-        <input type="text" placeholder="Search songs..." value={filterText} onChange={e=>setFilterText(e.target.value)} className="flex-1 border rounded-lg px-4 py-2 shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+        <input type="text" placeholder="Search songs..." value={filterText} onChange={e=>setFilterText(e.target.value)} css={{ flex:1, borderRadius:"0.5rem", padding:"0.5rem", border:"1px solid #d1d5db", outline:"none", boxShadow:"inset 0 1px 2px rgba(0,0,0,0.05)" }} />
       </div>
 
       {/* Song List */}
-      <div className="space-y-2">
-        {filteredSongs.length===0?<p className="text-black text-center">No songs found.</p>:filteredSongs.map((song,index)=>(
-          <div key={song._id} className={`flex flex-col md:flex-row justify-between items-center rounded-2xl shadow-sm p-4 gap-4 ${index%2===0?"bg-gray-50":"bg-gray-100"}`}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-black flex-1 w-full">
-              {["Title","Artist","Album","Genre"].map((field)=>(
-                <div key={field}><div className="text-xs uppercase font-bold text-black/70">{field}</div><div className="font-medium text-black">{song[field as keyof Song]}</div></div>
+      <div css={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
+        {filteredSongs.map((song, index) => (
+          <div key={song._id} css={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1rem", borderRadius:"1rem", backgroundColor:index%2===0?"#f9fafb":"#f3f4f6", boxShadow:"0 1px 2px rgba(0,0,0,0.05)" }}>
+            <div css={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:"1rem", flex:1 }}>
+              {["Title","Artist","Album","Genre"].map(field => (
+                <div key={field}>
+                  <div css={{ fontSize:"0.625rem", fontWeight:700, textTransform:"uppercase", color:"rgba(0,0,0,0.7)" }}>{field}</div>
+                  <div css={{ fontWeight:500 }}>{song[field as keyof Song]}</div>
+                </div>
               ))}
             </div>
-            <div className="flex gap-2 mt-2 md:mt-0 w-48">
-              <button className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-xl shadow-sm hover:bg-blue-700 transition font-medium" onClick={()=>handleEdit(song)}>Edit</button>
-              <button className="flex-1 bg-red-600 text-white px-4 py-2 rounded-xl shadow-sm hover:bg-red-700 transition font-medium" onClick={()=>setDeleteSongId(song._id??null)}>Delete</button>
+            <div css={{ display:"flex", gap:"0.5rem", flexShrink:0 }}>
+              <button onClick={() => handleEdit(song)} css={editButtonCss}>Edit</button>
+              <button onClick={() => setDeleteSongId(song._id??null)} css={deleteButtonCss}>Delete</button>
             </div>
           </div>
         ))}
       </div>
 
       {/* Main Statistics */}
-      <div ref={statsRef} className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {stats.map(({icon,value,label,color})=>(
-          <motion.div key={label} whileHover={{scale:1.05}} className={`relative bg-${color}-100 border border-${color}-300 rounded-xl shadow-md p-4 flex flex-col items-center text-center`}>
-            <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-${color}-400 to-${color}-600 rounded-tl-xl`}></div>
-            <div className="text-2xl mb-1">{icon}</div>
-            <div className="text-xl font-bold text-black">{value}</div>
-            <div className="text-sm font-semibold text-black">{label}</div>
+      <div ref={statsRef} css={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:"0.75rem", marginTop:"1.5rem" }}>
+        {stats.map(({icon,value,label,color}) => (
+          <motion.div 
+            key={label} 
+            whileHover={{scale:1.05}} 
+            css={css(cardBase, { 
+              backgroundColor:`${color}20`, 
+              border:`1px solid ${color}`, 
+              display:"flex", 
+              flexDirection:"column", 
+              alignItems:"center", 
+              textAlign:"center",
+              overflow: "hidden" 
+            })}
+          >
+            <div css={{ position:"absolute", top:0, left:0, width:"100%", height:"0.25rem", borderTopLeftRadius: "1rem", borderTopRightRadius: "1rem", background:color }} />
+            <div css={{ fontSize:"1.5rem", marginBottom:"0.25rem" }}>{icon}</div>
+            <div css={{ fontSize:"1.25rem", fontWeight:700, color:"#000" }}>{value}</div>
+            <div css={{ fontSize:"0.875rem", fontWeight:600, color:"#000" }}>{label}</div>
           </motion.div>
         ))}
       </div>
 
-      {/* Toggle Detail */}
-      <div className="flex justify-center mt-4">
-        <button className="bg-gray-200 text-black px-6 py-2 rounded-full shadow-sm hover:bg-gray-300 transition font-medium" onClick={()=>setShowDetailStats(!showDetailStats)}>
-          {showDetailStats?"Hide Detailed Statistics":"View Detailed Statistics"}
+      {/* Toggle Detailed Stats */}
+      <div css={{ display:"flex", justifyContent:"center", marginTop:"1rem" }}>
+        <button onClick={()=>setShowDetailStats(!showDetailStats)} css={css(secondaryButton, { borderRadius:"9999px" })}>
+          {showDetailStats ? "Hide Detailed Statistics" : "View Detailed Statistics"}
         </button>
       </div>
 
-      {/* Detailed Statistics */}
+      {/* Detailed Statistics - Charts */}
       <AnimatePresence>
         {showDetailStats && (
-          <motion.section initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} exit={{opacity:0,y:20}} transition={{duration:0.3}} className="mt-6 space-y-4">
-            {[
-              { title:"Genre Counts", data: genreCount, color:"green" },
-              { title:"Artist Breakdown", data:Object.fromEntries(artistStats.map(a=>[a.artist,`${a.albums} Albums | ${a.songs} Songs`])), color:"pink" },
-              { title:"Album Breakdown", data: albumStats, color:"yellow" }
-            ].map(({title,data,color})=>(
-              <div key={title}>
-                <h2 className="text-lg font-bold border-b pb-2 text-black">{title}</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {Object.entries(data).map(([key,val])=>(
-                    <motion.div key={key} whileHover={{scale:1.03}} className={`bg-${color}-100 border border-${color}-300 rounded-xl shadow-md p-2 flex flex-col items-center justify-center text-black text-sm`}>
-                      <div className="font-bold">{key}</div>
-                      <div>{val}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <motion.section initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} exit={{opacity:0,y:20}} transition={{duration:0.3}} css={{ marginTop:"1.5rem", display:"flex", flexDirection:"column", gap:"1.5rem" }}>
+            <h2 css={{ fontSize:"1.25rem", fontWeight:700, color:"#000", marginBottom:"0.5rem" }}>Detailed Breakdown 📈</h2>
+            
+            {/* Genre Counts - Bar Chart */}
+            <div>
+              <h3 css={{ fontSize:"1rem", fontWeight:600, borderBottom:"1px solid #d1d5db", paddingBottom:"0.25rem", marginBottom: "0.5rem", color:"#22c55e" }}>Top Genres by Song Count</h3>
+              <BarChart data={genreCount} color="#22c55e" maxItems={5} />
+            </div>
+
+            {/* Artist Breakdown - Donut Chart */}
+            <div>
+              <h3 css={{ fontSize:"1rem", fontWeight:600, borderBottom:"1px solid #d1d5db", paddingBottom:"0.25rem", marginBottom: "0.5rem", color:"#ec4899" }}>Artist Song Distribution (Top 3)</h3>
+              <DonutChart data={artistSongCount} color="#ec4899" total={totalSongs} />
+            </div>
+
+            {/* Album Breakdown - Stacked Bar Chart */}
+            <div>
+              <h3 css={{ fontSize:"1rem", fontWeight:600, borderBottom:"1px solid #d1d5db", paddingBottom:"0.25rem", marginBottom: "0.5rem", color:"#facc15" }}>Album Song Comparison (Top 5)</h3>
+              <StackedBarChart data={albumSongCount} color="#facc15" total={totalSongs} maxItems={5} />
+            </div>
+            
           </motion.section>
         )}
       </AnimatePresence>
 
       {/* Delete Modal */}
       {deleteSongId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-lg w-80">
-            <p className="mb-4 text-black font-medium">Are you sure you want to delete this song?</p>
-            <div className="flex justify-between gap-3">
-              <button className="flex-1 px-5 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition font-medium" onClick={()=>{dispatch(deleteSongRequest(deleteSongId)); setDeleteSongId(null);}}>Yes</button>
-              <button className="flex-1 px-5 py-2 bg-gray-200 text-black rounded-xl hover:bg-gray-300 transition font-medium" onClick={()=>setDeleteSongId(null)}>No</button>
+        <div css={{ position:"fixed", inset:0, backgroundColor:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:50 }}>
+          <div css={{ backgroundColor:"#fff", padding:"1.5rem", borderRadius:"1rem", boxShadow:"0 6px 12px rgba(0,0,0,0.2)", width:"20rem" }}>
+            <p css={{ marginBottom:"1rem", color:"#000", fontWeight:500 }}>Are you sure you want to delete this song?</p>
+            <div css={{ display:"flex", justifyContent:"space-between", gap:"0.5rem" }}>
+              <button 
+                onClick={()=>{dispatch(deleteSongRequest(deleteSongId)); setDeleteSongId(null);}} 
+                css={{ flex:1, padding:"0.5rem", backgroundColor:"#dc2626", color:"#fff", borderRadius:"0.75rem", fontWeight:500, cursor:"pointer", border:"none", "&:hover":{ backgroundColor:"#b91c1c" } }}
+              >
+                Yes
+              </button>
+              <button 
+                onClick={()=>setDeleteSongId(null)} 
+                css={{ flex:1, padding:"0.5rem", backgroundColor:"#e5e7eb", color:"#000", borderRadius:"0.75rem", fontWeight:500, cursor:"pointer", border:"none", "&:hover":{ backgroundColor:"#d1d5db" } }}
+              >
+                No
+              </button>
             </div>
           </div>
         </div>
