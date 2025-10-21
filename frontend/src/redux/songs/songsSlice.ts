@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { Song } from "../../types/song"; // ✅ use the shared type
+import { Song } from "../../types/song"; // 
 
 // Define the shape of the slice state
 interface SongsState {

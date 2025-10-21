@@ -1,7 +1,6 @@
 import { all, takeEvery, put, call } from "redux-saga/effects";
 import axios, { AxiosResponse } from "axios";
 import { Song } from "../types/song";
-// import dotenv from "dotenv";
 import {
   fetchSongsRequest,
   fetchSongsSuccess,
@@ -12,33 +11,38 @@ import {
   updateSongRequest,
   updateSongSuccess,
 } from "./songs/songsSlice";
-// const API_URL = "http://localhost:5000/songs";
-// const API_URL = "https://song-8p41.onrender.com/songs";
+
 const API_URL = process.env.REACT_APP_API_URL!;
 type SagaReturnType<T> = Generator<any, T, any>;
 
-// Fetch songs
+// Fetch all songs
 function* fetchSongsSaga(): SagaReturnType<void> {
   const response: AxiosResponse<Song[]> = yield call(() => axios.get<Song[]>(API_URL));
   yield put(fetchSongsSuccess(response.data));
 }
 
-// Add song
+// Add a new song
 function* addSongSaga(action: ReturnType<typeof addSongRequest>): SagaReturnType<void> {
-  const response: AxiosResponse<Song> = yield call(() => axios.post<Song>(API_URL, action.payload));
+  const song = action.payload;
+  if (!song) return;
+  const response: AxiosResponse<Song> = yield call(() => axios.post<Song>(API_URL, song));
   yield put(addSongSuccess(response.data));
 }
 
-// Delete song
+// Delete a song by ID
 function* deleteSongSaga(action: ReturnType<typeof deleteSongRequest>): SagaReturnType<void> {
-  yield call(() => axios.delete(`${API_URL}/${action.payload}`));
-  yield put(deleteSongSuccess(action.payload));
+  const id = action.payload;
+  if (!id) return;
+  yield call(() => axios.delete(`${API_URL}/${id}`));
+  yield put(deleteSongSuccess(id));
 }
 
-// Update song
+// Update a song
 function* updateSongSaga(action: ReturnType<typeof updateSongRequest>): SagaReturnType<void> {
+  const song = action.payload;
+  if (!song || !song._id) return;
   const response: AxiosResponse<Song> = yield call(() =>
-    axios.put<Song>(`${API_URL}/${action.payload._id}`, action.payload)
+    axios.put<Song>(`${API_URL}/${song._id}`, song)
   );
   yield put(updateSongSuccess(response.data));
 }
