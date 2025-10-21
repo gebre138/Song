@@ -39,7 +39,7 @@ const BarChart: React.FC<{ data: Record<string, number>, color: string, maxItems
     return <div css={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb' }}>
         {sortedData.map(([key, count]) => (
           <motion.div key={key} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} css={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span css={{ fontSize: '0.75rem', fontWeight: 600, width: '4rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{key}</span>
+            <span css={{ fontSize: '0.75rem', fontWeight: 600, minWidth: '4rem', flexShrink: 0, whiteSpace: 'normal', wordBreak: 'break-word', paddingRight: '0.5rem' }}>{key}</span>
             <div css={{ flex: 1, height: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.25rem', overflow: 'hidden' }}>
               <motion.div initial={{ width: '0%' }} animate={{ width: `${(count / maxCount) * 100}%` }} transition={{ duration: 0.5, delay: 0.1 }} css={{ height: '100%', backgroundColor: color, borderRadius: '0.25rem' }} />
             </div>
