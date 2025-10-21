@@ -111,7 +111,7 @@ const DonutChart: React.FC<{ data: Record<string, number>, color: string, total:
 
     const remaining = total - sortedData.reduce((sum, [, count]) => sum + count, 0);
     if (remaining > 0) {
-        const remainingAngle = (remaining / total) * 360;
+        // const remainingAngle = (remaining / total) * 360;
         slices.push({
             key: 'Other',
             count: remaining,
